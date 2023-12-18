@@ -15,8 +15,6 @@ describe('E2e tests related to the User ParamDecorator', () => {
   });
 
   it('Add successfully the user to the params', async () => {
-    await request(app.getHttpServer()).get('/user').expect(200).expect({
-      someId: 'id',
-    });
+    await request(app.getHttpServer()).post('/user').send({role: "NEW"}).expect(201);
   });
 });

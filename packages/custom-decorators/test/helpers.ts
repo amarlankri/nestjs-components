@@ -1,8 +1,21 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable */
-import { Controller, ExecutionContext, Get, INestApplication, Module } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ExecutionContext,
+  Get,
+  INestApplication,
+  Logger,
+  Module,
+  Post,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DecodeJWT } from '../src/decode-jwt.decorator';
 import { User } from '../src/user.decorator';
+import { Allow } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 import { APP_GUARD } from '@nestjs/core';
 
@@ -27,6 +40,33 @@ class AuthGuardMock {
   }
 }
 
+export const EnumFallback = (args: { type: unknown; fallback: (value: unknown) => unknown }) => {
+  return Transform((params) => {
+    const newValue = args.fallback(params.value);
+
+    return newValue;
+  });
+};
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  READER = 'READER',
+}
+
+class UserDto {
+  private static readonly logger: Logger = new Logger(UserDto.name);
+
+  @EnumFallback({
+    type: UserRole,
+    fallback: (value: UserRole) => {
+      UserDto.logger.error(`Invalid user role ${value}`);
+      return UserRole.ADMIN;
+    },
+  })
+  @Allow()
+  public role?: UserRole;
+}
+
 /**
  * Controller
  */
@@ -40,6 +80,12 @@ class FakeAppController {
    */
   @Get('/user')
   public getUser(@User() user: unknown): unknown {
+    return user;
+  }
+
+  @Post('/user')
+  public createUser(@Body() user: UserDto): unknown {
+    console.log('[AL] user', user);
     return user;
   }
 
@@ -70,5 +116,13 @@ export async function createTestAppModule(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  return moduleFixture.createNestApplication();
+  const app = moduleFixture.createNestApplication({});
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+    }),
+  );
+
+  return app;
 }
